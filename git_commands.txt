@@ -1,0 +1,10 @@
+# Bu komutları sırayla PowerShell veya terminal'de çalıştırın.
+# Önce klasörünüze gidin:
+# cd C:\Users\HECTOR\Desktop\test_anti
+
+git init
+git add .
+git commit -m "Initial commit"
+git branch -M main
+git remote add origin https://github.com/KULLANICI_ADINIZ/test_anti.git
+git push -u origin main
