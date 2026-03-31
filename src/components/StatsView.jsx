@@ -80,8 +80,8 @@ const StatsView = () => {
     return `${m}m`;
   };
 
-  // Grafiğin tepe noktasını bulalım (Scale ayarlamak için)
-  const maxChartValue = Math.max(...chartData.map(d => d.minutes), 60); // Minimum 60dk bar tavan yüksekliği
+
+  const maxChartValue = Math.max(...chartData.map(d => d.minutes), 60);
 
   return (
     <div className="animate-fade-in" style={{ width: '100%', maxWidth: '800px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
@@ -125,7 +125,7 @@ const StatsView = () => {
          <div style={{ display: 'flex', height: '220px', alignItems: 'flex-end', justifyContent: 'space-between', gap: '8px', paddingBottom: '16px', borderBottom: '2px solid var(--panel-border)' }}>
             {chartData.map((data, idx) => {
                const heightPercent = maxChartValue > 0 ? (data.minutes / maxChartValue) * 100 : 0;
-               const isToday = idx === chartData.length - 1; // Dizideki sonuncu eleman her zaman 'Bugün'
+               const isToday = idx === chartData.length - 1;
                
                return (
                   <div key={idx} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100%', gap: '12px', height: '100%' }}>

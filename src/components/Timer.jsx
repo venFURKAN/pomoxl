@@ -78,7 +78,7 @@ const Timer = ({ settings, onSessionComplete, onSettingsChange }) => {
     if (runningMode === MODES.LONG_BREAK) titleMode = 'Long Break';
 
     if (settings.zenMode) {
-      document.title = `PomoFocus - ${titleMode}`;
+      document.title = `Pomoxl - ${titleMode}`;
     } else if (Object.values(MODES).some(m => sessions[m].isActive)) {
       // A timer is running — show its countdown
       document.title = `▶ ${rMin}:${rSec} - ${titleMode}`;
@@ -91,7 +91,7 @@ const Timer = ({ settings, onSessionComplete, onSettingsChange }) => {
       if (mode === MODES.LONG_BREAK) curTitleMode = 'Long Break';
       document.title = `${min}:${sec} - ${curTitleMode}`;
     }
-    return () => { document.title = 'PomoFocus'; };
+    return () => { document.title = 'Pomoxl'; };
   }, [sessions, mode, settings.zenMode, timeLeft]);
 
   useEffect(() => {
@@ -122,7 +122,7 @@ const Timer = ({ settings, onSessionComplete, onSettingsChange }) => {
         if (completedMode) {
           setTimeout(() => {
             if (settings.pushNotifications && 'Notification' in window && Notification.permission === 'granted') {
-              new Notification('PomoFocus', { body: `Time is up! Your ${completedMode} session has finished.`, icon: '/vite.svg' });
+              new Notification('Pomoxl', { body: `Time is up! Your ${completedMode} session has finished.` });
             }
             const duration = completedMode === MODES.POMODORO ? settings.pomodoro * 60 : 
                             (completedMode === MODES.SHORT_BREAK ? settings.shortBreak * 60 : settings.longBreak * 60);

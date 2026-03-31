@@ -95,7 +95,7 @@ function App() {
     <>
       <header className="header">
         <div className="logo cursor-pointer" onClick={() => handleTabSwitch('timer')} style={{ cursor: 'pointer' }}>
-          PomoFocus
+          Pomoxl
         </div>
 
         <div className="header-nav">

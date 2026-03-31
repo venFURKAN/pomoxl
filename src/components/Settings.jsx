@@ -121,7 +121,7 @@ const Settings = ({ settings, user, onSave }) => {
             </div>
 
             <h2 className="profile-name">
-              {user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'Pomo User'}
+              {user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'Guest User'}
             </h2>
             <p className="profile-bio">Deep Focus Enthusiast</p>
 

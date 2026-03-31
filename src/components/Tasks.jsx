@@ -90,7 +90,7 @@ const Tasks = () => {
       <Reorder.Group 
         axis="y" 
         values={tasks} 
-        onReorder={setTasks} // Anlık animasyon için sadece React State güncelleriz
+        onReorder={setTasks}
         className="task-list"
         style={{ listStyle: 'none', margin: 0, padding: 0 }}
       >
@@ -111,7 +111,7 @@ const Tasks = () => {
                 background: isActive ? 'var(--primary-transparent)' : 'var(--bg-color)',
                 padding: isActive ? '12px' : '8px 8px',
                 borderRadius: '12px',
-                transition: 'background 0.2s', // Transform animasyonunu framer-motion devraldı!
+                transition: 'background 0.2s',
                 cursor: 'grab',
                 border: '1px solid var(--panel-border)',
                 marginBottom: '10px'
