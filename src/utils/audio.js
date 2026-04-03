@@ -1,6 +1,12 @@
 // Web Audio API ile ücretsiz, telifsiz ve sorunsuz bildirim sesi üretici
 const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
 
+export const initAudio = () => {
+    if (audioCtx.state === 'suspended') {
+        audioCtx.resume();
+    }
+};
+
 export const playSound = (mode) => {
     // Tarayıcı kısıtlamalarını aşmak için audio context uyandırılır
     if (audioCtx.state === 'suspended') {

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { MODES, loadData } from '../utils/storage';
 import { Play, Pause, Settings as SettingsIcon, RotateCcw, Dices, Target } from 'lucide-react';
-import { playSound } from '../utils/audio';
+import { playSound, initAudio } from '../utils/audio';
 
 const Timer = ({ settings, onSessionComplete, onSettingsChange }) => {
   const [mode, setMode] = useState(MODES.POMODORO);
@@ -146,6 +146,7 @@ const Timer = ({ settings, onSessionComplete, onSettingsChange }) => {
 
   // Only one mode can run at a time
   const toggleTimer = () => {
+    initAudio();
     setSessions(prev => {
       const next = { ...prev };
       // Pause all other active sessions
