@@ -8,6 +8,7 @@ export const defaultSettings = {
   strictMode: false,
   zenMode: false,
   pushNotifications: false,
+  soundEnabled: true,
   dailyGoal: 4
 };
 

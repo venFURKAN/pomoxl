@@ -10,7 +10,6 @@ const Settings = ({ settings, user, onSave }) => {
   const [localSettings, setLocalSettings] = useState(settings);
   const [autoStartBreaks, setAutoStartBreaks] = useState(true);
   const [autoStartPomo, setAutoStartPomo] = useState(false);
-  const [soundNotifs, setSoundNotifs] = useState(true);
   const [showPhotoMenu, setShowPhotoMenu] = useState(false);
 
   const updateSetting = (key, value) => {
@@ -219,7 +218,7 @@ const Settings = ({ settings, user, onSave }) => {
                 <div className="behavior-title">Sound Notifications</div>
                 <div className="behavior-desc">Play a chime when timer finishes</div>
               </div>
-              <div className={`toggle-switch ${soundNotifs ? 'active' : ''}`} onClick={() => setSoundNotifs(!soundNotifs)}>
+              <div className={`toggle-switch ${localSettings.soundEnabled ? 'active' : ''}`} onClick={() => toggleSetting('soundEnabled')}>
                 <div className="toggle-switch-knob"></div>
               </div>
             </div>
