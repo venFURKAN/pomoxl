@@ -6,9 +6,9 @@ import { playSound, initAudio } from '../utils/audio';
 const Timer = ({ settings, onSessionComplete, onSettingsChange }) => {
   const [mode, setMode] = useState(MODES.POMODORO);
   const [sessions, setSessions] = useState({
-    [MODES.POMODORO]: { timeLeft: settings.pomodoro * 60, isActive: false, hasStarted: false },
-    [MODES.SHORT_BREAK]: { timeLeft: settings.shortBreak * 60, isActive: false, hasStarted: false },
-    [MODES.LONG_BREAK]: { timeLeft: settings.longBreak * 60, isActive: false, hasStarted: false },
+    [MODES.POMODORO]: { timeLeft: settings.pomodoro * 60, startTotal: settings.pomodoro * 60, isActive: false, hasStarted: false },
+    [MODES.SHORT_BREAK]: { timeLeft: settings.shortBreak * 60, startTotal: settings.shortBreak * 60, isActive: false, hasStarted: false },
+    [MODES.LONG_BREAK]: { timeLeft: settings.longBreak * 60, startTotal: settings.longBreak * 60, isActive: false, hasStarted: false },
   });
   const [showSettings, setShowSettings] = useState(false);
   const [tempSettings, setTempSettings] = useState({
@@ -47,14 +47,21 @@ const Timer = ({ settings, onSessionComplete, onSettingsChange }) => {
   useEffect(() => {
     setSessions(prev => {
       const next = { ...prev };
-      if (!prev[MODES.POMODORO].hasStarted) next[MODES.POMODORO] = { ...next[MODES.POMODORO], timeLeft: settings.pomodoro * 60 };
-      else next[MODES.POMODORO] = { ...next[MODES.POMODORO], timeLeft: Math.min(prev[MODES.POMODORO].timeLeft, settings.pomodoro * 60) };
+      // Only update timeLeft (and startTotal) for sessions that haven't been started yet
+      if (!prev[MODES.POMODORO].hasStarted)
+        next[MODES.POMODORO] = { ...next[MODES.POMODORO], timeLeft: settings.pomodoro * 60, startTotal: settings.pomodoro * 60 };
+      else
+        next[MODES.POMODORO] = { ...next[MODES.POMODORO], timeLeft: Math.min(prev[MODES.POMODORO].timeLeft, settings.pomodoro * 60) };
 
-      if (!prev[MODES.SHORT_BREAK].hasStarted) next[MODES.SHORT_BREAK] = { ...next[MODES.SHORT_BREAK], timeLeft: settings.shortBreak * 60 };
-      else next[MODES.SHORT_BREAK] = { ...next[MODES.SHORT_BREAK], timeLeft: Math.min(prev[MODES.SHORT_BREAK].timeLeft, settings.shortBreak * 60) };
+      if (!prev[MODES.SHORT_BREAK].hasStarted)
+        next[MODES.SHORT_BREAK] = { ...next[MODES.SHORT_BREAK], timeLeft: settings.shortBreak * 60, startTotal: settings.shortBreak * 60 };
+      else
+        next[MODES.SHORT_BREAK] = { ...next[MODES.SHORT_BREAK], timeLeft: Math.min(prev[MODES.SHORT_BREAK].timeLeft, settings.shortBreak * 60) };
 
-      if (!prev[MODES.LONG_BREAK].hasStarted) next[MODES.LONG_BREAK] = { ...next[MODES.LONG_BREAK], timeLeft: settings.longBreak * 60 };
-      else next[MODES.LONG_BREAK] = { ...next[MODES.LONG_BREAK], timeLeft: Math.min(prev[MODES.LONG_BREAK].timeLeft, settings.longBreak * 60) };
+      if (!prev[MODES.LONG_BREAK].hasStarted)
+        next[MODES.LONG_BREAK] = { ...next[MODES.LONG_BREAK], timeLeft: settings.longBreak * 60, startTotal: settings.longBreak * 60 };
+      else
+        next[MODES.LONG_BREAK] = { ...next[MODES.LONG_BREAK], timeLeft: Math.min(prev[MODES.LONG_BREAK].timeLeft, settings.longBreak * 60) };
       return next;
     });
   }, [settings.pomodoro, settings.shortBreak, settings.longBreak]);
@@ -202,7 +209,9 @@ const Timer = ({ settings, onSessionComplete, onSettingsChange }) => {
       next[mode] = {
         ...next[mode],
         isActive: !next[mode].isActive,
-        hasStarted: true
+        hasStarted: true,
+        // Lock in the startTotal at the moment the user first starts this session
+        startTotal: next[mode].hasStarted ? next[mode].startTotal : next[mode].timeLeft
       };
       return next;
     });
@@ -212,9 +221,9 @@ const Timer = ({ settings, onSessionComplete, onSettingsChange }) => {
   const resetAll = () => {
     pomodoroCountRef.current = 0;
     setSessions({
-      [MODES.POMODORO]: { timeLeft: settings.pomodoro * 60, isActive: false, hasStarted: false },
-      [MODES.SHORT_BREAK]: { timeLeft: settings.shortBreak * 60, isActive: false, hasStarted: false },
-      [MODES.LONG_BREAK]: { timeLeft: settings.longBreak * 60, isActive: false, hasStarted: false },
+      [MODES.POMODORO]: { timeLeft: settings.pomodoro * 60, startTotal: settings.pomodoro * 60, isActive: false, hasStarted: false },
+      [MODES.SHORT_BREAK]: { timeLeft: settings.shortBreak * 60, startTotal: settings.shortBreak * 60, isActive: false, hasStarted: false },
+      [MODES.LONG_BREAK]: { timeLeft: settings.longBreak * 60, startTotal: settings.longBreak * 60, isActive: false, hasStarted: false },
     });
   };
 
@@ -274,7 +283,8 @@ const Timer = ({ settings, onSessionComplete, onSettingsChange }) => {
   const totalDuration =
     mode === MODES.POMODORO ? settings.pomodoro * 60 :
       (mode === MODES.SHORT_BREAK ? settings.shortBreak * 60 : settings.longBreak * 60);
-  const progressPercent = totalDuration > 0 ? (Math.min(timeLeft, totalDuration) / totalDuration) : 0;
+  const startTotal = currentSession.startTotal || totalDuration;
+  const progressPercent = startTotal > 0 ? (Math.min(timeLeft, startTotal) / startTotal) : 0;
   const radius = 166;
   const circumference = 2 * Math.PI * radius;
   const strokeDashoffset = circumference - progressPercent * circumference;
