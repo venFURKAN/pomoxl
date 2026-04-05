@@ -185,7 +185,11 @@ const Timer = ({ settings, onSessionComplete, onSettingsChange }) => {
       const next = { ...prev };
       Object.values(MODES).forEach(m => {
         if (m !== mode && next[m].isActive) {
-          next[m] = { ...next[m], isActive: false };
+          // Reset the interrupted timer to its full duration
+          const interruptedDuration = m === MODES.POMODORO ? settings.pomodoro * 60
+            : m === MODES.SHORT_BREAK ? settings.shortBreak * 60
+            : settings.longBreak * 60;
+          next[m] = { ...next[m], isActive: false, hasStarted: false, timeLeft: interruptedDuration, startTotal: interruptedDuration };
         }
       });
       // If timeLeft is 0 (session just completed), reset to full duration before starting
