@@ -117,7 +117,11 @@ const Timer = ({ settings, onSessionComplete, onSettingsChange }) => {
             next[m] = { ...next[m], timeLeft: next[m].timeLeft - 1 };
             stateChanged = true;
           } else if (next[m].isActive && next[m].timeLeft === 0) {
-            next[m] = { ...next[m], isActive: false, hasStarted: false };
+            // Reset timeLeft so the session is ready to restart after completion
+            const fullDuration = m === MODES.POMODORO ? settings.pomodoro * 60
+              : m === MODES.SHORT_BREAK ? settings.shortBreak * 60
+              : settings.longBreak * 60;
+            next[m] = { ...next[m], isActive: false, hasStarted: false, timeLeft: fullDuration, startTotal: fullDuration };
             stateChanged = true;
             completedMode = m;
           }
@@ -184,12 +188,18 @@ const Timer = ({ settings, onSessionComplete, onSettingsChange }) => {
           next[m] = { ...next[m], isActive: false };
         }
       });
+      // If timeLeft is 0 (session just completed), reset to full duration before starting
+      const fullDuration = mode === MODES.POMODORO ? settings.pomodoro * 60
+        : mode === MODES.SHORT_BREAK ? settings.shortBreak * 60
+        : settings.longBreak * 60;
+      const currentTimeLeft = next[mode].timeLeft > 0 ? next[mode].timeLeft : fullDuration;
+      const isFirstStart = !next[mode].hasStarted || next[mode].timeLeft === 0;
       next[mode] = {
         ...next[mode],
+        timeLeft: currentTimeLeft,
         isActive: !next[mode].isActive,
         hasStarted: true,
-        // Lock in the startTotal at the moment the user first starts this session
-        startTotal: next[mode].hasStarted ? next[mode].startTotal : next[mode].timeLeft
+        startTotal: isFirstStart ? currentTimeLeft : next[mode].startTotal
       };
       return next;
     });
