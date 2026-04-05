@@ -195,8 +195,17 @@ const Timer = ({ settings, onSessionComplete, onSettingsChange }) => {
     });
   };
 
-  // Reset ALL sessions to defaults
+  // Reset ALL sessions to defaults — saves partial time for any started sessions
   const resetAll = () => {
+    Object.values(MODES).forEach(m => {
+      const s = sessions[m];
+      if (s.hasStarted && s.startTotal) {
+        const elapsed = s.startTotal - s.timeLeft;
+        if (elapsed > 10) {
+          onSessionComplete(elapsed, m);
+        }
+      }
+    });
     pomodoroCountRef.current = 0;
     setSessions({
       [MODES.POMODORO]: { timeLeft: settings.pomodoro * 60, startTotal: settings.pomodoro * 60, isActive: false, hasStarted: false },
