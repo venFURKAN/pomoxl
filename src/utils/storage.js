@@ -9,6 +9,8 @@ export const defaultSettings = {
   zenMode: false,
   pushNotifications: false,
   soundEnabled: true,
+  autoStartBreaks: false,
+  autoStartPomodoro: false,
   dailyGoal: 4
 };
 

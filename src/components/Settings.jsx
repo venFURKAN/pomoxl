@@ -8,8 +8,6 @@ const DEFAULT_AVATAR = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/
 
 const Settings = ({ settings, user, onSave }) => {
   const [localSettings, setLocalSettings] = useState(settings);
-  const [autoStartBreaks, setAutoStartBreaks] = useState(true);
-  const [autoStartPomo, setAutoStartPomo] = useState(false);
   const [showPhotoMenu, setShowPhotoMenu] = useState(false);
 
   const updateSetting = (key, value) => {
@@ -196,7 +194,7 @@ const Settings = ({ settings, user, onSave }) => {
                 <div className="behavior-title">Auto-start Breaks</div>
                 <div className="behavior-desc">Automatically begin the rest period</div>
               </div>
-              <div className={`toggle-switch ${autoStartBreaks ? 'active' : ''}`} onClick={() => setAutoStartBreaks(!autoStartBreaks)}>
+              <div className={`toggle-switch ${localSettings.autoStartBreaks ? 'active' : ''}`} onClick={() => toggleSetting('autoStartBreaks')}>
                 <div className="toggle-switch-knob"></div>
               </div>
             </div>
@@ -207,7 +205,7 @@ const Settings = ({ settings, user, onSave }) => {
                 <div className="behavior-title">Auto-start Pomodoros</div>
                 <div className="behavior-desc">Start next block without manual input</div>
               </div>
-              <div className={`toggle-switch ${autoStartPomo ? 'active' : ''}`} onClick={() => setAutoStartPomo(!autoStartPomo)}>
+              <div className={`toggle-switch ${localSettings.autoStartPomodoro ? 'active' : ''}`} onClick={() => toggleSetting('autoStartPomodoro')}>
                 <div className="toggle-switch-knob"></div>
               </div>
             </div>

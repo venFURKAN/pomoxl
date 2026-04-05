@@ -27,11 +27,6 @@ function App() {
     const data = loadData();
     setSettings(data.settings);
 
-    if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
-      setIsDark(true);
-      document.documentElement.classList.add('dark');
-    }
-
     // Check existing Supabase session
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session?.user) {

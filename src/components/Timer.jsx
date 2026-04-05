@@ -1,25 +1,24 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { MODES, loadData } from '../utils/storage';
-import { Play, Pause, Settings as SettingsIcon, RotateCcw, Dices, Target } from 'lucide-react';
+import { Play, Pause, Settings as SettingsIcon, RotateCcw, Dices, Target, Plus } from 'lucide-react';
 import { playSound, initAudio } from '../utils/audio';
 
 const Timer = ({ settings, onSessionComplete, onSettingsChange }) => {
   const [mode, setMode] = useState(MODES.POMODORO);
-  
   const [sessions, setSessions] = useState({
     [MODES.POMODORO]: { timeLeft: settings.pomodoro * 60, isActive: false, hasStarted: false },
     [MODES.SHORT_BREAK]: { timeLeft: settings.shortBreak * 60, isActive: false, hasStarted: false },
     [MODES.LONG_BREAK]: { timeLeft: settings.longBreak * 60, isActive: false, hasStarted: false },
   });
   const [showSettings, setShowSettings] = useState(false);
-  
   const [tempSettings, setTempSettings] = useState({
     pomodoro: settings.pomodoro,
     shortBreak: settings.shortBreak,
     longBreak: settings.longBreak,
   });
-
   const [activeTaskName, setActiveTaskName] = useState('');
+  // Track completed pomodoros for auto long-break
+  const pomodoroCountRef = useRef(0);
 
   const loadActiveTask = () => {
     const data = loadData();
@@ -37,7 +36,6 @@ const Timer = ({ settings, onSessionComplete, onSettingsChange }) => {
     return () => window.removeEventListener('active_task_updated', loadActiveTask);
   }, []);
 
-  // Sync temp settings if settings change externally
   useEffect(() => {
     setTempSettings({
       pomodoro: settings.pomodoro,
@@ -46,7 +44,6 @@ const Timer = ({ settings, onSessionComplete, onSettingsChange }) => {
     });
   }, [settings.pomodoro, settings.shortBreak, settings.longBreak]);
 
-  // Update unstarted timers or clamp started timers when settings change
   useEffect(() => {
     setSessions(prev => {
       const next = { ...prev };
@@ -67,13 +64,12 @@ const Timer = ({ settings, onSessionComplete, onSettingsChange }) => {
   const isActive = currentSession.isActive;
   const hasStarted = currentSession.hasStarted;
 
+  // Title bar update
   useEffect(() => {
-    // Find the actively running session (if any), regardless of current view
     const runningMode = Object.values(MODES).find(m => sessions[m].isActive) || mode;
     const runningSession = sessions[runningMode];
     const rMin = String(Math.floor(runningSession.timeLeft / 60)).padStart(2, '0');
     const rSec = String(runningSession.timeLeft % 60).padStart(2, '0');
-
     let titleMode = 'Focus';
     if (runningMode === MODES.SHORT_BREAK) titleMode = 'Short Break';
     if (runningMode === MODES.LONG_BREAK) titleMode = 'Long Break';
@@ -81,10 +77,8 @@ const Timer = ({ settings, onSessionComplete, onSettingsChange }) => {
     if (settings.zenMode) {
       document.title = `Pomoxl - ${titleMode}`;
     } else if (Object.values(MODES).some(m => sessions[m].isActive)) {
-      // A timer is running — show its countdown
       document.title = `▶ ${rMin}:${rSec} - ${titleMode}`;
     } else {
-      // Nothing running — show current view's time
       const min = String(Math.floor(timeLeft / 60)).padStart(2, '0');
       const sec = String(timeLeft % 60).padStart(2, '0');
       let curTitleMode = 'Focus';
@@ -95,6 +89,7 @@ const Timer = ({ settings, onSessionComplete, onSettingsChange }) => {
     return () => { document.title = 'Pomoxl'; };
   }, [sessions, mode, settings.zenMode, timeLeft]);
 
+  // Accent color by mode
   useEffect(() => {
     const root = document.documentElement;
     if (mode === MODES.POMODORO) root.style.setProperty('--accent-color', 'var(--pomodoro-color)');
@@ -102,6 +97,7 @@ const Timer = ({ settings, onSessionComplete, onSettingsChange }) => {
     if (mode === MODES.LONG_BREAK) root.style.setProperty('--accent-color', 'var(--longBreak-color)');
   }, [mode]);
 
+  // Main countdown + auto-transitions
   useEffect(() => {
     const interval = setInterval(() => {
       setSessions(prev => {
@@ -122,18 +118,64 @@ const Timer = ({ settings, onSessionComplete, onSettingsChange }) => {
 
         if (completedMode) {
           setTimeout(() => {
-            if (settings.soundEnabled ?? true) {
-              playSound(completedMode);
-            }
+            if (settings.soundEnabled ?? true) playSound(completedMode);
             if (settings.pushNotifications && 'Notification' in window && Notification.permission === 'granted') {
               new Notification('Pomoxl', { body: `Time is up! Your ${completedMode} session has finished.` });
             }
-            const duration = completedMode === MODES.POMODORO ? settings.pomodoro * 60 : 
-                            (completedMode === MODES.SHORT_BREAK ? settings.shortBreak * 60 : settings.longBreak * 60);
+            const duration = completedMode === MODES.POMODORO ? settings.pomodoro * 60 :
+              (completedMode === MODES.SHORT_BREAK ? settings.shortBreak * 60 : settings.longBreak * 60);
             onSessionComplete(duration, completedMode);
-            
-            if (completedMode === mode) {
-               setMode(completedMode === MODES.POMODORO ? MODES.SHORT_BREAK : MODES.POMODORO);
+
+            if (completedMode === MODES.POMODORO) {
+              // Increment pomodoro count
+              pomodoroCountRef.current += 1;
+              const count = pomodoroCountRef.current;
+
+              // After 4 pomodoros → long break; else → short break
+              const nextMode = (count % 4 === 0) ? MODES.LONG_BREAK : MODES.SHORT_BREAK;
+              setMode(nextMode);
+
+              if (settings.autoStartBreaks) {
+                setSessions(s => ({
+                  ...s,
+                  [nextMode]: {
+                    timeLeft: nextMode === MODES.LONG_BREAK ? settings.longBreak * 60 : settings.shortBreak * 60,
+                    isActive: true,
+                    hasStarted: true
+                  }
+                }));
+              } else {
+                setSessions(s => ({
+                  ...s,
+                  [nextMode]: {
+                    timeLeft: nextMode === MODES.LONG_BREAK ? settings.longBreak * 60 : settings.shortBreak * 60,
+                    isActive: false,
+                    hasStarted: false
+                  }
+                }));
+              }
+            } else {
+              // Break finished → go back to Pomodoro
+              setMode(MODES.POMODORO);
+              if (settings.autoStartPomodoro) {
+                setSessions(s => ({
+                  ...s,
+                  [MODES.POMODORO]: {
+                    timeLeft: settings.pomodoro * 60,
+                    isActive: true,
+                    hasStarted: true
+                  }
+                }));
+              } else {
+                setSessions(s => ({
+                  ...s,
+                  [MODES.POMODORO]: {
+                    timeLeft: settings.pomodoro * 60,
+                    isActive: false,
+                    hasStarted: false
+                  }
+                }));
+              }
             }
           }, 0);
         }
@@ -146,16 +188,17 @@ const Timer = ({ settings, onSessionComplete, onSettingsChange }) => {
 
   // Only one mode can run at a time
   const toggleTimer = () => {
+    // Strict mode: if a pomodoro is running, cannot start a break
+    if (settings.strictMode && sessions[MODES.POMODORO].isActive && mode !== MODES.POMODORO) return;
+
     initAudio();
     setSessions(prev => {
       const next = { ...prev };
-      // Pause all other active sessions
       Object.values(MODES).forEach(m => {
         if (m !== mode && next[m].isActive) {
           next[m] = { ...next[m], isActive: false };
         }
       });
-      // Toggle current
       next[mode] = {
         ...next[mode],
         isActive: !next[mode].isActive,
@@ -167,6 +210,7 @@ const Timer = ({ settings, onSessionComplete, onSettingsChange }) => {
 
   // Reset ALL sessions to defaults
   const resetAll = () => {
+    pomodoroCountRef.current = 0;
     setSessions({
       [MODES.POMODORO]: { timeLeft: settings.pomodoro * 60, isActive: false, hasStarted: false },
       [MODES.SHORT_BREAK]: { timeLeft: settings.shortBreak * 60, isActive: false, hasStarted: false },
@@ -174,8 +218,17 @@ const Timer = ({ settings, onSessionComplete, onSettingsChange }) => {
     });
   };
 
+  // +1 minute to current timer
+  const addMinute = () => {
+    setSessions(prev => ({
+      ...prev,
+      [mode]: { ...prev[mode], timeLeft: prev[mode].timeLeft + 60 }
+    }));
+  };
 
   const handleModeChange = (newMode) => {
+    // Strict mode: block switching away from POMODORO while it's running
+    if (settings.strictMode && sessions[MODES.POMODORO].isActive && newMode !== MODES.POMODORO) return;
     setMode(newMode);
   };
 
@@ -184,18 +237,13 @@ const Timer = ({ settings, onSessionComplete, onSettingsChange }) => {
     setTempSettings((prev) => ({ ...prev, [key]: value }));
     const num = Number(value);
     if (num > 0) {
-      onSettingsChange({
-        ...settings,
-        [key]: num
-      });
+      onSettingsChange({ ...settings, [key]: num });
     }
   };
 
   const handleRandomizeTemplate = () => {
-    // Don't randomize if any session is actively running
     const anyActive = Object.values(MODES).some(m => sessions[m].isActive);
     if (anyActive) return;
-
     const PRESETS = [
       { pomodoro: 25, shortBreak: 5, longBreak: 15 },
       { pomodoro: 45, shortBreak: 10, longBreak: 20 },
@@ -203,23 +251,15 @@ const Timer = ({ settings, onSessionComplete, onSettingsChange }) => {
       { pomodoro: 90, shortBreak: 15, longBreak: 30 },
     ];
     let preset;
-    // Pick different than current if possible
     do {
       preset = PRESETS[Math.floor(Math.random() * PRESETS.length)];
     } while (preset.pomodoro === settings.pomodoro && PRESETS.length > 1);
-
     setTempSettings({
       pomodoro: preset.pomodoro.toString(),
       shortBreak: preset.shortBreak.toString(),
       longBreak: preset.longBreak.toString()
     });
-
-    onSettingsChange({
-      ...settings,
-      pomodoro: preset.pomodoro,
-      shortBreak: preset.shortBreak,
-      longBreak: preset.longBreak
-    });
+    onSettingsChange({ ...settings, pomodoro: preset.pomodoro, shortBreak: preset.shortBreak, longBreak: preset.longBreak });
   };
 
   const m = String(Math.floor(timeLeft / 60)).padStart(2, '0');
@@ -231,31 +271,33 @@ const Timer = ({ settings, onSessionComplete, onSettingsChange }) => {
     return 'LONG BREAK';
   };
 
-  const totalDuration = 
-    mode === MODES.POMODORO ? settings.pomodoro * 60 : 
-    (mode === MODES.SHORT_BREAK ? settings.shortBreak * 60 : settings.longBreak * 60);
-
+  const totalDuration =
+    mode === MODES.POMODORO ? settings.pomodoro * 60 :
+      (mode === MODES.SHORT_BREAK ? settings.shortBreak * 60 : settings.longBreak * 60);
   const progressPercent = totalDuration > 0 ? (Math.min(timeLeft, totalDuration) / totalDuration) : 0;
-  
-  // Circle dimensions
-  const radius = 166; 
-  const circumference = 2 * Math.PI * radius; 
+  const radius = 166;
+  const circumference = 2 * Math.PI * radius;
   const strokeDashoffset = circumference - progressPercent * circumference;
+
+  // Strict mode: reset and tab-switching blocked while pomodoro runs
+  const pomodoroRunning = sessions[MODES.POMODORO].isActive;
+  const isResetBlocked = settings.strictMode && pomodoroRunning;
+  const isTabBlocked = (newMode) => settings.strictMode && pomodoroRunning && newMode !== MODES.POMODORO;
+  const isStartBlocked = settings.strictMode && isActive;
 
   return (
     <div className="panel animate-fade-in timer-container" style={{ position: 'relative' }}>
-      {/* Top right reset button, explicitly 0 border, transparent, no outline */}
-      <button 
-        style={{ 
-          position: 'absolute', 
-          top: '24px', 
-          right: '24px', 
-          opacity: (settings.strictMode && isActive) ? 0 : 0.4, 
-          pointerEvents: (settings.strictMode && isActive) ? 'none' : 'auto',
-          background: 'transparent', 
-          border: 'none', 
-          outline: 'none', 
-          boxShadow: 'none', 
+      <button
+        style={{
+          position: 'absolute',
+          top: '24px',
+          right: '24px',
+          opacity: isResetBlocked ? 0 : 0.4,
+          pointerEvents: isResetBlocked ? 'none' : 'auto',
+          background: 'transparent',
+          border: 'none',
+          outline: 'none',
+          boxShadow: 'none',
           cursor: 'pointer',
           padding: 0
         }}
@@ -267,7 +309,7 @@ const Timer = ({ settings, onSessionComplete, onSettingsChange }) => {
 
       <div className="nav-tabs" style={{ alignItems: 'flex-start', marginBottom: showSettings ? '32px' : '24px' }}>
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px' }}>
-          <button 
+          <button
             className={`nav-tab ${mode === MODES.POMODORO ? 'active' : ''}`}
             onClick={() => handleModeChange(MODES.POMODORO)}
             style={{ position: 'relative' }}
@@ -278,8 +320,8 @@ const Timer = ({ settings, onSessionComplete, onSettingsChange }) => {
             )}
           </button>
           {showSettings && (
-            <input 
-              className="timer-settings-input" 
+            <input
+              className="timer-settings-input"
               value={tempSettings.pomodoro}
               onChange={(e) => handleInlineChange('pomodoro', e.target.value)}
               title="Focus Duration (mins)"
@@ -288,10 +330,10 @@ const Timer = ({ settings, onSessionComplete, onSettingsChange }) => {
         </div>
 
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px' }}>
-          <button 
+          <button
             className={`nav-tab ${mode === MODES.SHORT_BREAK ? 'active' : ''}`}
             onClick={() => handleModeChange(MODES.SHORT_BREAK)}
-            style={{ position: 'relative' }}
+            style={{ position: 'relative', opacity: isTabBlocked(MODES.SHORT_BREAK) ? 0.4 : 1, cursor: isTabBlocked(MODES.SHORT_BREAK) ? 'not-allowed' : 'pointer' }}
           >
             SHORT
             {sessions[MODES.SHORT_BREAK].isActive && mode !== MODES.SHORT_BREAK && (
@@ -299,8 +341,8 @@ const Timer = ({ settings, onSessionComplete, onSettingsChange }) => {
             )}
           </button>
           {showSettings && (
-            <input 
-              className="timer-settings-input" 
+            <input
+              className="timer-settings-input"
               value={tempSettings.shortBreak}
               onChange={(e) => handleInlineChange('shortBreak', e.target.value)}
               title="Short Break Duration (mins)"
@@ -309,10 +351,10 @@ const Timer = ({ settings, onSessionComplete, onSettingsChange }) => {
         </div>
 
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px' }}>
-          <button 
+          <button
             className={`nav-tab ${mode === MODES.LONG_BREAK ? 'active' : ''}`}
             onClick={() => handleModeChange(MODES.LONG_BREAK)}
-            style={{ position: 'relative' }}
+            style={{ position: 'relative', opacity: isTabBlocked(MODES.LONG_BREAK) ? 0.4 : 1, cursor: isTabBlocked(MODES.LONG_BREAK) ? 'not-allowed' : 'pointer' }}
           >
             LONG
             {sessions[MODES.LONG_BREAK].isActive && mode !== MODES.LONG_BREAK && (
@@ -320,8 +362,8 @@ const Timer = ({ settings, onSessionComplete, onSettingsChange }) => {
             )}
           </button>
           {showSettings && (
-            <input 
-              className="timer-settings-input" 
+            <input
+              className="timer-settings-input"
               value={tempSettings.longBreak}
               onChange={(e) => handleInlineChange('longBreak', e.target.value)}
               title="Long Break Duration (mins)"
@@ -330,7 +372,7 @@ const Timer = ({ settings, onSessionComplete, onSettingsChange }) => {
         </div>
 
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px' }}>
-          <button 
+          <button
             className={`nav-tab-icon ${showSettings ? 'active' : ''}`}
             title="Quick Settings"
             onClick={() => setShowSettings(!showSettings)}
@@ -338,52 +380,39 @@ const Timer = ({ settings, onSessionComplete, onSettingsChange }) => {
             <SettingsIcon size={18} />
           </button>
           {showSettings && (
-            <button 
-              className="dice-btn" 
-              onClick={handleRandomizeTemplate} 
-              title="Randomize Work &amp; Break Set"
+            <button
+              className="dice-btn"
+              onClick={handleRandomizeTemplate}
+              title="Randomize Work & Break Set"
             >
-               <Dices size={24} />
+              <Dices size={24} />
             </button>
           )}
         </div>
       </div>
 
       <div style={{ position: 'relative', width: '340px', height: '340px', display: 'flex', justifyContent: 'center', alignItems: 'center', marginBottom: '12px' }}>
-        <svg 
-          width="340" 
-          height="340" 
-          style={{ position: 'absolute', top: 0, left: 0, transform: 'rotate(-90deg)', zIndex: 0 }}
-        >
-          {/* Background ring */}
-          <circle 
-            cx="170" cy="170" r={radius} 
-            stroke="var(--panel-border)" 
-            strokeWidth="6" 
-            fill="transparent" 
-          />
-          {/* Active progress arc */}
-          <circle 
-            cx="170" cy="170" r={radius} 
-            stroke="var(--accent-color)" 
-            strokeWidth="6" 
-            fill="transparent" 
+        <svg width="340" height="340" style={{ position: 'absolute', top: 0, left: 0, transform: 'rotate(-90deg)', zIndex: 0 }}>
+          <circle cx="170" cy="170" r={radius} stroke="var(--panel-border)" strokeWidth="6" fill="transparent" />
+          <circle
+            cx="170" cy="170" r={radius}
+            stroke="var(--accent-color)"
+            strokeWidth="6"
+            fill="transparent"
             strokeDasharray={circumference}
             strokeDashoffset={strokeDashoffset}
             strokeLinecap="round"
-            style={{ 
-               transition: 'stroke-dashoffset 1s linear, stroke 0.3s ease',
-            }}
+            style={{ transition: 'stroke-dashoffset 1s linear, stroke 0.3s ease' }}
           />
         </svg>
 
         <div className="timer-circle" style={{ borderColor: 'transparent', zIndex: 1, margin: 0, position: 'absolute', width: '100%', height: '100%' }}>
           <div className="timer-circle-label">{getLabel()}</div>
-          <div 
-            className="timer-text" 
-            style={{ 
-              filter: settings.zenMode ? 'blur(14px)' : 'none', 
-              transition: 'filter 0.5s', 
+          <div
+            className="timer-text"
+            style={{
+              filter: settings.zenMode ? 'blur(14px)' : 'none',
+              transition: 'filter 0.5s',
               opacity: settings.zenMode ? 0.6 : 1,
               userSelect: settings.zenMode ? 'none' : 'auto',
               pointerEvents: settings.zenMode ? 'none' : 'auto'
@@ -391,53 +420,79 @@ const Timer = ({ settings, onSessionComplete, onSettingsChange }) => {
           >
             {settings.zenMode ? '88:88' : `${m}:${s}`}
           </div>
-          <button 
-            className="btn btn-primary" 
-            onClick={toggleTimer} 
-            disabled={settings.strictMode && isActive}
-            style={{ 
-              marginTop: '32px', 
-              borderRadius: '100px', 
+          <button
+            className="btn btn-primary"
+            onClick={toggleTimer}
+            disabled={isStartBlocked}
+            style={{
+              marginTop: '32px',
+              borderRadius: '100px',
               minWidth: '150px',
               backgroundColor: 'var(--accent-color)',
               boxShadow: '0 8px 24px var(--primary-transparent)',
-              opacity: (settings.strictMode && isActive) ? 0.4 : 1,
-              cursor: (settings.strictMode && isActive) ? 'not-allowed' : 'pointer'
+              opacity: isStartBlocked ? 0.4 : 1,
+              cursor: isStartBlocked ? 'not-allowed' : 'pointer'
             }}
           >
             {isActive ? <><Pause size={20} fill="currentColor" /> PAUSE</> : <><Play size={20} fill="currentColor" /> START</>}
           </button>
+
+          {/* +1 min button — only visible when active */}
+          {isActive && (
+            <button
+              onClick={addMinute}
+              title="Add 1 minute"
+              style={{
+                marginTop: '12px',
+                background: 'transparent',
+                border: '1px solid var(--panel-border)',
+                borderRadius: '100px',
+                padding: '6px 18px',
+                fontSize: '0.75rem',
+                fontWeight: 700,
+                color: 'var(--text-muted)',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '4px',
+                transition: 'all 0.2s'
+              }}
+            >
+              <Plus size={14} /> 1 min
+            </button>
+          )}
         </div>
+      </div>
+
+      {/* Pomodoro counter */}
+      <div style={{ display: 'flex', gap: '6px', justifyContent: 'center', marginTop: '8px' }}>
+        {[1, 2, 3, 4].map(i => (
+          <div
+            key={i}
+            title={`Pomodoro ${i}`}
+            style={{
+              width: '10px', height: '10px', borderRadius: '50%',
+              background: (pomodoroCountRef.current % 4) >= i ? 'var(--accent-color)' : 'var(--panel-border)',
+              transition: 'background 0.4s'
+            }}
+          />
+        ))}
       </div>
 
       {activeTaskName && (
         <div style={{ marginTop: '24px', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-          <span style={{ 
-            fontSize: '0.7rem', 
-            fontWeight: 800, 
-            color: 'var(--text-muted)', 
-            textTransform: 'uppercase', 
-            letterSpacing: '1px', 
-            marginBottom: '8px' 
-          }}>
+          <span style={{ fontSize: '0.7rem', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '8px' }}>
             Working On
           </span>
-          <div style={{ 
-            opacity: 0.9, 
-            display: 'flex', 
-            alignItems: 'center', 
-            fontSize: '1rem', 
-            color: 'var(--text-strong)', 
-            fontWeight: 800,
-            background: 'var(--panel-border)',
-            padding: '10px 24px',
-            borderRadius: '100px'
+          <div style={{
+            opacity: 0.9, display: 'flex', alignItems: 'center', fontSize: '1rem',
+            color: 'var(--text-strong)', fontWeight: 800,
+            background: 'var(--panel-border)', padding: '10px 24px', borderRadius: '100px'
           }}>
             {activeTaskName}
           </div>
         </div>
       )}
-
     </div>
   );
 };
