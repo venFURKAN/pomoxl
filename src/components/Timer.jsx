@@ -134,55 +134,33 @@ const Timer = ({ settings, onSessionComplete, onSettingsChange }) => {
             onSessionComplete(duration, completedMode);
 
             if (completedMode === MODES.POMODORO) {
-              // Increment pomodoro count
               pomodoroCountRef.current += 1;
               const count = pomodoroCountRef.current;
-
-              // After 4 pomodoros → long break; else → short break
               const nextMode = (count % 4 === 0) ? MODES.LONG_BREAK : MODES.SHORT_BREAK;
+              const nextDuration = nextMode === MODES.LONG_BREAK ? settings.longBreak * 60 : settings.shortBreak * 60;
               setMode(nextMode);
 
-              if (settings.autoStartBreaks) {
-                setSessions(s => ({
-                  ...s,
-                  [nextMode]: {
-                    timeLeft: nextMode === MODES.LONG_BREAK ? settings.longBreak * 60 : settings.shortBreak * 60,
-                    isActive: true,
-                    hasStarted: true
-                  }
-                }));
-              } else {
-                setSessions(s => ({
-                  ...s,
-                  [nextMode]: {
-                    timeLeft: nextMode === MODES.LONG_BREAK ? settings.longBreak * 60 : settings.shortBreak * 60,
-                    isActive: false,
-                    hasStarted: false
-                  }
-                }));
-              }
+              setSessions(s => ({
+                ...s,
+                [nextMode]: {
+                  timeLeft: nextDuration,
+                  startTotal: nextDuration,
+                  isActive: !!settings.autoStartBreaks,
+                  hasStarted: !!settings.autoStartBreaks
+                }
+              }));
             } else {
-              // Break finished → go back to Pomodoro
+              // Break finished → go back to Pomodoro, always idle (user starts manually)
               setMode(MODES.POMODORO);
-              if (settings.autoStartPomodoro) {
-                setSessions(s => ({
-                  ...s,
-                  [MODES.POMODORO]: {
-                    timeLeft: settings.pomodoro * 60,
-                    isActive: true,
-                    hasStarted: true
-                  }
-                }));
-              } else {
-                setSessions(s => ({
-                  ...s,
-                  [MODES.POMODORO]: {
-                    timeLeft: settings.pomodoro * 60,
-                    isActive: false,
-                    hasStarted: false
-                  }
-                }));
-              }
+              setSessions(s => ({
+                ...s,
+                [MODES.POMODORO]: {
+                  timeLeft: settings.pomodoro * 60,
+                  startTotal: settings.pomodoro * 60,
+                  isActive: false,
+                  hasStarted: false
+                }
+              }));
             }
           }, 0);
         }
